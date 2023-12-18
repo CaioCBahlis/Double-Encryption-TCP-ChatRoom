@@ -13,6 +13,8 @@ client.connect(("127.0.0.1", 65534))
 def EncryptME(message):
     cipher = PKCS1_OAEP.new(SV_Public_Key)
     ciphertext = cipher.encrypt(message)
+    return ciphertext
+    
 def receive():
     while True:
         try:
