@@ -1,11 +1,13 @@
 import socket
 import threading
 from Crypto.PublicKey import RSA
-from Crypto.Cipher import PKCS1_OAEP
-import EncryptMe
+from Crypto.Cipher import PKCS1_OAEP, AES
+from Crypto.Random import get_random_bytes
+
+
 
 host = "127.0.0.1"
-port = 65534
+port = 65511
 
 
 sv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -16,22 +18,34 @@ clients = []
 nicknames = []
 
 MyKeysthatreallyshouldbeinafile = RSA.generate(2048)
+MyPublicKey = MyKeysthatreallyshouldbeinafile.public_key()
 SvPrivKeythatmostdefinitelyshouldbeinafile = MyKeysthatreallyshouldbeinafile.export_key()
 
+AESKey = get_random_bytes(16)
 
-def SetUp_Encryption(client):
-    SvPublicKey = MyKeysthatreallyshouldbeinafile.publickey().export_key()
+def SetUp_Encryption(AESKEY, client):
+    SvPublicKey = MyPublicKey.export_key()
     client.send(SvPublicKey)
     ClientPublicKeySerialized = client.recv(2048)
     print(f"client public key: {ClientPublicKeySerialized}")
+
+    cipher = PKCS1_OAEP.new(RSA.import_key(ClientPublicKeySerialized))
+    message = cipher.encrypt(AESKEY)
+
+    client.send(message)
+
+
     return ClientPublicKeySerialized
 
 def DecryptMe(ciphertext):
 
-    RawSvPriv = RSA.import_key(SvPrivKeythatmostdefinitelyshouldbeinafile)
-    countercipher = PKCS1_OAEP.new(RawSvPriv)
-    message = countercipher.decrypt(ciphertext)
-    return message.decode("utf-8")
+    tag = ciphertext[:16]
+    nonce = ciphertext[16:32]
+    message = ciphertext[32:]
+    countercipher = AES.new(AESKey, AES.MODE_EAX, nonce)
+    message = countercipher.decrypt_and_verify(message, tag)
+    print(message)
+    return message
 
 def Broadcast(message, Admin):
 
@@ -39,7 +53,7 @@ def Broadcast(message, Admin):
         if Admin:
             client.send(message.encode("ascii"))
         else:
-            client.send(DecryptMe(message).encode("ascii"))
+            client.send(DecryptMe(message))
 
 
 def handle(client):
@@ -60,7 +74,7 @@ def receive():
     while True:
         client,address = sv.accept()
         print(f"connected from {address}")
-        SetUp_Encryption(client)
+        SetUp_Encryption(AESKey, client)
 
         client.send("NICK: ".encode("ascii"))
         nickname = DecryptMe(client.recv(1024))
