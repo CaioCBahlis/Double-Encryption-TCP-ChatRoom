@@ -14,7 +14,7 @@ def EncryptME(message):
     cipher = AES.new(Aes_Key, AES.MODE_EAX)
     message, tag = cipher.encrypt_and_digest(message)
     nonce = cipher.nonce
-    print(f'{type(cipher), type(message), type(nonce)}')
+    #print(f'{type(cipher), type(message), type(nonce)}')
     AESPAYLOAD = tag+nonce+bytes(message)
     return AESPAYLOAD
 def receive():
@@ -35,7 +35,7 @@ def write():
         message = f"{Nickname}: {input()}"
         print(message)
         Encmessage = EncryptME(message.encode("utf-8"))
-        print(Encmessage)
+        #print(Encmessage)
         client.send(Encmessage)
 
 def RSASetup():
@@ -50,16 +50,18 @@ def RSASetup():
         print("Public Key Encryption Has Been Established")
     except:
         print("Encryption has failed")
+        print("Trying Again...")
         client.close()
+        RSASetup()
 
-    print("AES")
+    
     AES_KEY = AESSetup(key)
 
     return AES_KEY
 
 def AESSetup(key):
     AESKey = client.recv(2048)
-    print(AESKey)
+    
 
     countercipher = PKCS1_OAEP.new(key)
     AESKey = countercipher.decrypt(AESKey)
